@@ -10,6 +10,8 @@ const dbUrl = 'mongodb://localhost:27017';
 const dbName = 'thermo-band';
 const collectionName = 'test';
 
+const PORT = 8080;
+
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
 
@@ -65,10 +67,15 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
     })
     .catch(err => console.error(err));
 
+app.post('/dump', (req, res) => {
+    console.log('Dumped info header:', req.header);
+    console.log('Dumped info body:', req.body);
+    res.send('success');
+})
 app.get('/health', (req, res) => {
     res.send('success');
 })
 
-app.listen(3000, function () {
-    console.log('listening on 3000')
+app.listen(PORT, function () {
+    console.log(`listening on ${PORT}`)
 })
