@@ -6,11 +6,10 @@ const bodyParser = require('body-parser')
 const { MongoClient, ObjectID } = require('mongodb');
 const app = express();
 
-const dbUrl = 'mongodb://localhost:27017';
-const dbName = 'thermo-band';
-const collectionName = 'test';
-
-const PORT = 8080;
+const dbUrl = process.env.DB_URL;
+const dbName = process.env.DB_NAME;
+const collectionName = process.env.DB_COLLECTION;
+const PORT = process.env.PORT;
 
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
@@ -68,7 +67,6 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
     .catch(err => console.error(err));
 
 app.post('/dump', (req, res) => {
-    console.log('Dumped info header:', req.header);
     console.log('Dumped info body:', req.body);
     res.send('success');
 })
