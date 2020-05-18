@@ -2,14 +2,19 @@
 
 const express = require('express');
 const bodyParser = require('body-parser')
-
 const { MongoClient, ObjectID } = require('mongodb');
+const axios = require('axios');
+
 const app = express();
 
 const dbUrl = process.env.DB_URL;
 const dbName = process.env.DB_NAME;
 const collectionName = process.env.DB_COLLECTION;
 const PORT = process.env.PORT;
+const wxUrl = process.env.WX_URL;
+const appId = process.env.WX_APP_ID;
+const appSecret = process.env.WX_SECRET;
+
 
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
@@ -70,6 +75,37 @@ app.post('/dump', (req, res) => {
     console.log('Dumped info body:', req.body);
     res.send('success');
 })
+
+app.get('/wxlogin/:code', (req, res) => {
+    console.log('Request for user information for code: ', req.params.code);
+    axios.get(wxUrl, {
+        params: {
+            appId,
+            secret: appSecret,
+            js_code: req.params.code,
+            grant_type: 'authorization_code'
+        }
+    })
+        .then(response => {
+            const data = response.data;
+            console.log('wx query response', data);
+            if (!data.openid || !data.session_key || data.errcode) {
+                res.status(404).json({
+                    errmsg: data.errmsg || 'data is incomplete'
+                });
+            } else {
+                res.json(data);
+            }
+
+        })
+        .catch(err => {
+            console.log('err', err)
+            // res.status(400).json({
+            //     errmsg: 'info retrieve failed'
+            // })
+        })
+})
+
 app.get('/health', (req, res) => {
     res.send('success');
 })
