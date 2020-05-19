@@ -94,7 +94,7 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
                         });
                     } else {
                         const openid = data.openid;
-                        userInfos.updateOne(
+                        userInfosCol.updateOne(
                             {
                                 openid
                             },
