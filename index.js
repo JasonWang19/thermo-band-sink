@@ -276,6 +276,7 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
             const staffId = req.params.staffId;
             console.log('Request for user listfor staff id: ', staffId);
 
+            let orgId;
             const promise = staffsCol.findOne({
                 staffId
             })
@@ -283,13 +284,13 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
                     if (!doc || !doc.orgId) {
                         return Promise.reject('empty doc');
                     }
-
+                    orgId = doc.ordId;
                     return orgsCol.findOne({
-                        orgId: doc.orgId
+                        orgId
                     })
 
                 });
-            getStaffUserList(promise, staffId, res);
+            getStaffUserList(promise, staffId, orgId, res);
 
         });
 
@@ -307,12 +308,12 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
                 orgId
             });
 
-            getStaffUserList(promise, staffId, res)
+            getStaffUserList(promise, staffId, orgId, res)
 
 
         });
 
-        const getStaffUserList = (promise, staffId, res) => {
+        const getStaffUserList = (promise, staffId, orgId, res) => {
             promise.then(doc => {
                 if (!doc) {
                     return Promise.reject('empty doc');
@@ -331,7 +332,11 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
                     if (!docs) {
                         return Promise.reject('empty doc');
                     }
-                    return res.json(docs);
+                    return res.json({
+                        staffId,
+                        orgId,
+                        r: data
+                    });
                 })
                 .catch(err => {
                     if (err === 'empty doc') {
