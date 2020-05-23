@@ -284,12 +284,13 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
                     if (!doc || !doc.orgId) {
                         return Promise.reject('empty doc');
                     }
-                    orgId = doc.ordId;
+                    orgId = doc.orgId;
                     return orgsCol.findOne({
                         orgId
                     })
 
                 });
+
             getStaffUserList(promise, staffId, orgId, res);
 
         });
@@ -335,7 +336,7 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
                     return res.json({
                         staffId,
                         orgId,
-                        r: data
+                        r: docs
                     });
                 })
                 .catch(err => {
