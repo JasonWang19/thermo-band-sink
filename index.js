@@ -28,6 +28,12 @@ const DEFAULT_QUERY_INTERVAL = 2 * 3600 * 1000;
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
 
+// utility function
+const isEmptyArray = arr => {
+    return !(Array.isArray(arr) && arr.length);
+}
+
+
 MongoClient.connect(dbUrl, { useUnifiedTopology: true })
     .then(client => {
         console.log("Connected successfully to DB");
@@ -93,25 +99,42 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
         *  GET 
         *  获取历史数据
        */
-        app.get('/records/c/:cId', (req, res) => {
-            const cId = req.params.cId;
+        app.get('/records/c/:c', (req, res) => {
+            getHistoryRecords('c', req, res);
+        });
+
+        /*
+        *  Records
+        *  GET 
+        *  获取历史数据
+       */
+        app.get('/records/i/:i', (req, res) => {
+            getHistoryRecords('i', req, res);
+
+        });
+
+
+        const getHistoryRecords = (param, req, res) => {
+            const id = req.params[param];
             const current = new Date();
             const startTs = req.query.from ? new Date(parseInt(req.query.from)) : new Date(current - DEFAULT_QUERY_INTERVAL);
             const endTs = req.query.to ? new Date(parseInt(req.query.to)) : current;
-            console.log('Request records for c id: ', cId, startTs, endTs);
+            console.log(`Request records for ${param} id: `, id, startTs, endTs);
 
             dataHistoriesCol.find({
-                c: cId,
+                [param]: id,
                 ts: { $gte: startTs, $lt: endTs }
             }).toArray((err, docs) => {
                 if (err) {
                     res.status(500).end();
+                    return;
                 }
-                if (!docs) {
-                    res.status(400).end();
+                if (isEmptyArray(docs)) {
+                    res.status(404).end();
+                    return;
                 }
                 res.json({
-                    c: cId,
+                    c: docs[0].c,
                     i: docs[0].i,
                     r: docs.map(doc => {
                         return {
@@ -121,8 +144,7 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
                     })
                 });
             });
-
-        });
+        }
 
         /* 
          *  User login
@@ -330,7 +352,7 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
                 // })));
             })
                 .then(docs => {
-                    if (!docs) {
+                    if (isEmptyArray(docs)) {
                         return Promise.reject('empty doc');
                     }
                     return res.json({
