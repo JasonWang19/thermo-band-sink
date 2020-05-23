@@ -138,7 +138,7 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
                     i: docs[0].i,
                     r: docs.map(doc => {
                         return {
-                            ts: doc.ts,
+                            ts: new Date(doc.ts).getTime(),
                             ti: doc.ti
                         }
                     })
