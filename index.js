@@ -4,6 +4,7 @@ const express = require('express');
 const bodyParser = require('body-parser')
 const { MongoClient, ObjectID } = require('mongodb');
 const axios = require('axios');
+const { v4: uuid4, v5: uuid5 } = require('uuid');
 
 const app = express();
 
@@ -21,6 +22,7 @@ const userInfos = 'user_infos';
 const devices = 'devices';
 const orgs = 'orgs';
 const staffs = 'staffs';
+const teams = 'teams';
 
 // constants
 const DEFAULT_QUERY_INTERVAL = 2 * 3600 * 1000;
@@ -33,6 +35,9 @@ const isEmptyArray = arr => {
     return !(Array.isArray(arr) && arr.length);
 }
 
+const getUuid = () => {
+    return uuid4();
+}
 
 MongoClient.connect(dbUrl, { useUnifiedTopology: true })
     .then(client => {
@@ -43,6 +48,7 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
         const devicesCol = db.collection(devices);
         const orgsCol = db.collection(orgs);
         const staffsCol = db.collection(staffs);
+        const teamsCol = db.collection(teams);
 
         /* 
          *  Records 
@@ -113,7 +119,6 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
 
         });
 
-
         const getHistoryRecords = (param, req, res) => {
             const id = req.params[param];
             const current = new Date();
@@ -175,7 +180,7 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
                                 openid
                             },
                             {
-                                $setOnInsert: {
+                                $set: {
                                     ...data
                                 }
                             },
@@ -415,7 +420,7 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
                     deviceId
                 },
                 {
-                    $setOnInsert: {
+                    $set: {
                         ...data
                     }
                 },
@@ -436,27 +441,51 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
         });
 
         /*
+         *  Devices info bulk
+         *  POST
+         *  批量更新手环相关信息
+        */
+        app.post('/devices', (req, res) => {
+            console.log('Request for update devices information: ', req.body);
+            const data = req.body;
+            const bulk = devicesCol.initializeUnorderedBulkOp();
+
+            for (let d of data) {
+                bulk.find({ deviceId: d.deviceId }).upsert().updateOne({ $set: d });
+            }
+
+            bulk.execute()
+                .then(results => {
+                    console.log(JSON.stringify(results));
+                    res.json(data);
+                })
+                .catch(err => {
+                    console.error('err', err);
+                    res.status(400).json({
+                        errmsg: `cannot setup device info for device id: ${deviceId}`
+                    })
+                });
+
+        });
+
+        /*
          *  Org info
          *  POST
-         *  更新班级相关信息
+         *  更新机构相关信息
         */
         app.post('/org', (req, res) => {
             console.log('Request for update org information: ', req.body);
-            const data = req.body;
-            const orgId = data.ordId;
+            let data = req.body;
+            const orgId = data.ordId ? data.ordId : getUuid();
+            data = {
+                ...data,
+                ordId
+            };
 
             orgsCol.updateOne(
-                {
-                    orgId
-                },
-                {
-                    $setOnInsert: {
-                        ...data
-                    }
-                },
-                {
-                    upsert: true
-                }
+                { orgId },
+                { $set: data },
+                { upsert: true }
             )
                 .then(result => {
                     res.json(data);
@@ -473,7 +502,7 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
         /*
          *  Org info by id
          *  GET
-         *  通过Org ID获取班级相关信息
+         *  通过Org ID获取机构相关信息
         */
         app.get('/org/id/:orgId', (req, res) => {
             console.log('Request for obtain org information: ', req.params.orgId);
@@ -497,10 +526,11 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
             )
 
         });
+
         /*
          *  Org info by name
          *  GET
-         *  通过Org name获取班级相关信息
+         *  通过Org name获取机构相关信息
         */
         app.get('/org/name/:orgName', (req, res) => {
             console.log('Request for obtain org information: ', req.params.orgName);
@@ -512,6 +542,71 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
                 (err, doc) => {
                     if (err) {
                         console.error('Query failed when extract org via org name:', orgName);
+                        res.status(500).end();
+                    }
+                    if (doc) {
+                        res.json(doc);
+                    } else {
+                        res.status(404).end();
+                    }
+
+                }
+            )
+
+        });
+
+        /*
+        *  Team info
+        *  POST
+        *  更新班级相关信息
+       */
+        app.post('/team', (req, res) => {
+            console.log('Request for update team information: ', req.body);
+            let data = req.body;
+            const teamId = data.teamId ? data.teamId : getUuid();
+            data = {
+                ...data,
+                teamId
+            }
+
+            teamsCol.updateOne(
+                {
+                    teamId
+                },
+                {
+                    $set: data
+                },
+                {
+                    upsert: true
+                }
+            )
+                .then(result => {
+                    res.json(data);
+                })
+                .catch(err => {
+                    console.error('err', err);
+                    res.status(400).json({
+                        errmsg: `cannot setup org info for org id: ${orgId}`
+                    })
+                });
+
+        });
+
+        /*
+                 *  Team info by id
+                 *  GET
+                 *  通过Team id获取班级相关信息
+                */
+        app.get('/team/id/:teamId', (req, res) => {
+            console.log('Request for obtain org information: ', req.params.teamId);
+
+            const teamId = req.params.teamId;
+
+            teamsCol.findOne(
+                { teamId },
+                (err, doc) => {
+                    if (err) {
+                        console.error('Query failed when extract team via team id:', teamId);
                         res.status(500).end();
                     }
                     if (doc) {
