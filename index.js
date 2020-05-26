@@ -21,8 +21,10 @@ const dataHistories = 'data_histories';
 const userInfos = 'user_infos';
 const devices = 'devices';
 const orgs = 'orgs';
+const orgStructs = 'org_structs';
 const staffs = 'staffs';
 const teams = 'teams';
+
 
 // constants
 const DEFAULT_QUERY_INTERVAL = 2 * 3600 * 1000;
@@ -49,6 +51,7 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
         const orgsCol = db.collection(orgs);
         const staffsCol = db.collection(staffs);
         const teamsCol = db.collection(teams);
+        const orgStructsCol = db.collection(orgStructs);
 
         /* 
          *  Records 
@@ -295,9 +298,9 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
         });
 
         /*
-         *  Staff / user relation
+         *  Staff - User list
          *  GET 
-         *  获取员工用户的下属信息
+         *  获取员工用户的下属信息 staff id
         */
         app.get('/staff/:staffId/userlist', (req, res) => {
             const staffId = req.params.staffId;
@@ -312,59 +315,54 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
                         return Promise.reject('empty doc');
                     }
                     orgId = doc.orgId;
-                    return orgsCol.findOne({
-                        orgId
-                    })
-
+                    return { orgId, staffId };
                 });
 
-            getStaffUserList(promise, staffId, orgId, res);
+            getStaffUserList(promise, res);
 
         });
 
         /*
-         *  Staff / user relation
+         *  Staff - User relation
          *  GET 
-         *  获取员工用户的下属信息
+         *  获取员工用户的下属信息 staff & org id
         */
         app.get('/staff/:staffId/org/:orgId/userlist', (req, res) => {
             const staffId = req.params.staffId;
             const orgId = req.params.orgId;
             console.log('Request for user listfor staff/org id: ', staffId, orgId);
 
-            const promise = orgsCol.findOne({
-                orgId
-            });
-
-            getStaffUserList(promise, staffId, orgId, res)
-
-
+            getStaffUserList(Promise.resolve({ orgId, staffId }), res)
         });
 
-        const getStaffUserList = (promise, staffId, orgId, res) => {
-            promise.then(doc => {
-                if (!doc) {
+        const getStaffUserList = (promise, res) => {
+            promise.then(param => {
+                if (!param) {
                     return Promise.reject('empty doc');
                 }
 
-                const tmp = doc.map[staffId]['leaves'].map(leaf => console.log('leaf ', leaf));
-                const promises = Promise.all(doc.map[staffId]['leaves'].map(leaf => devicesCol.findOne({
-                    c: leaf
-                })));
-                return promises;
-                // return Promise.all(doc.map[staffId]['leaves'].map(leaf => devicesCol.findOne({
-                //     c: leaf
-                // })));
+                return orgStructsCol.findOne({
+                    orgId: param.orgId,
+                    staffId: param.staffId
+                })
+
             })
+                .then(doc => {
+                    if (!doc) {
+                        return Promise.reject('empty doc');
+                    }
+                    // construct team member and leave promise
+                    const promises = doc.teams.map(t => getMemberPromise(t));
+                    promises.push(...doc.leaves.map(c => devicesCol.findOne({ c })));
+                    return Promise.all(promises);
+
+                })
                 .then(docs => {
                     if (isEmptyArray(docs)) {
                         return Promise.reject('empty doc');
                     }
-                    return res.json({
-                        staffId,
-                        orgId,
-                        r: docs
-                    });
+
+                    return res.json(docs);
                 })
                 .catch(err => {
                     if (err === 'empty doc') {
@@ -377,6 +375,27 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
                     }
 
                 })
+        }
+
+        const getMemberPromise = (teamId) => {
+            return teamsCol.aggregate([
+                {
+                    $match: { teamId }
+                },
+                {
+                    $lookup:
+                    {
+                        from: "devices",
+                        localField: "members",
+                        foreignField: "c",
+                        as: "students"
+                    }
+                },
+                {
+                    $project: { "_id": 0, "members": 0 }
+                }
+            ])
+                .toArray()
         }
         /*
          *  Device info
@@ -476,10 +495,10 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
         app.post('/org', (req, res) => {
             console.log('Request for update org information: ', req.body);
             let data = req.body;
-            const orgId = data.ordId ? data.ordId : getUuid();
+            const orgId = data.orgid ? data.orgid : getUuid();
             data = {
                 ...data,
-                ordId
+                orgid
             };
 
             orgsCol.updateOne(
@@ -556,6 +575,95 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
         });
 
         /*
+         *  Org structure info
+         *  POST
+         *  更新机构人员架构相关信息
+        */
+        app.post('/orgstruct', (req, res) => {
+            console.log('Request for update org structure information: ', req.body);
+            let data = req.body;
+            const orgId = data.orgId;
+
+            const promises = Object.entries(data.structs).map(e => {
+                const staffId = e[0];
+                return orgStructsCol.updateOne(
+                    { orgId, staffId },
+                    { $set: e[1] },
+                    { upsert: true }
+                );
+            })
+
+            Promise.all(promises)
+                .then(results => {
+                    res.json(data);
+                })
+                .catch(err => {
+                    console.error('err', err);
+                    res.status(400).json({
+                        errmsg: `cannot setup org info for org id: ${orgId}`
+                    })
+                });
+
+        });
+
+        /*
+         *  Org structure by id
+         *  GET
+         *  通过Org ID获取机构人员架构信息
+        */
+        app.get('/orgstruct/id/:orgId', (req, res) => {
+            console.log('Request for obtain org information: ', req.params.orgId);
+
+            const orgId = req.params.orgId;
+
+            orgStructsCol.find({ orgId }).toArray()
+                .then(
+                    docs => {
+
+                        if (!isEmptyArray(docs)) {
+                            res.json(docs);
+                        } else {
+                            res.status(404).end();
+                        }
+
+                    })
+                .catch(err => {
+                    console.error('Query failed when extract org via org id:', orgId);
+                    res.status(500).end();
+                })
+
+        });
+
+        /*
+         *  Org structure by id
+         *  GET
+         *  通过Org ID获取机构人员架构信息
+        */
+        app.get('/orgstruct/id/:orgId/staff/:staffId', (req, res) => {
+            console.log('Request for obtain org information: ', req.params.orgId);
+
+            const orgId = req.params.orgId;
+
+
+            orgStructsCol.findOne(
+                { orgId },
+                (err, doc) => {
+                    if (err) {
+                        console.error('Query failed when extract org via org id:', orgId);
+                        res.status(500).end();
+                    }
+                    if (doc) {
+                        res.json(doc);
+                    } else {
+                        res.status(404).end();
+                    }
+
+                }
+            )
+
+        });
+
+        /*
         *  Team info
         *  POST
         *  更新班级相关信息
@@ -593,10 +701,10 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
         });
 
         /*
-                 *  Team info by id
-                 *  GET
-                 *  通过Team id获取班级相关信息
-                */
+         *  Team info by id
+         *  GET
+         *  通过Team id获取班级相关信息
+        */
         app.get('/team/id/:teamId', (req, res) => {
             console.log('Request for obtain org information: ', req.params.teamId);
 
