@@ -361,8 +361,28 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
                     if (isEmptyArray(docs)) {
                         return Promise.reject('empty doc');
                     }
+                    const result = [];
+                    const noTeam = 'NA';
+                    for (let doc of docs) {
+                        if (Array.isArray(doc)) {
+                            const teamName = doc[0].levels.join();
+                            for (let d of doc[0].students) {
+                                result.push({
+                                    ...d,
+                                    teamName,
+                                })
+                            }
+                        } else {
+                            if (doc) {
+                                result.push({
+                                    ...doc,
+                                    teamName: noTeam,
+                                })
+                            }
+                        }
+                    }
 
-                    return res.json(docs);
+                    return res.json(result);
                 })
                 .catch(err => {
                     if (err === 'empty doc') {
