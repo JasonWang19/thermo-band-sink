@@ -5,8 +5,12 @@ const bodyParser = require('body-parser')
 const { MongoClient, ObjectID } = require('mongodb');
 const axios = require('axios');
 const { v4: uuid4, v5: uuid5 } = require('uuid');
+const net = require('net');
 
 const app = express();
+const server = net.createServer();
+
+const util = require("./src/utils/util");
 
 // env
 const dbUrl = process.env.DB_URL;
@@ -15,6 +19,7 @@ const PORT = process.env.PORT;
 const wxUrl = process.env.WX_URL;
 const appId = process.env.WX_APP_ID;
 const appSecret = process.env.WX_SECRET;
+const TCP_PORT = process.env.TCP_PORT;
 
 // collection names
 const dataHistories = 'data_histories';
@@ -31,6 +36,7 @@ const DEFAULT_QUERY_INTERVAL = 2 * 3600 * 1000;
 
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
+app.use(bodyParser.text())
 
 // utility function
 const isEmptyArray = arr => {
@@ -41,7 +47,9 @@ const getUuid = () => {
     return uuid4();
 }
 
-MongoClient.connect(dbUrl, { useUnifiedTopology: true })
+const mongoClient = MongoClient.connect(dbUrl, { useUnifiedTopology: true });
+
+mongoClient
     .then(client => {
         console.log("Connected successfully to DB");
         const db = client.db(dbName);
@@ -749,6 +757,31 @@ MongoClient.connect(dbUrl, { useUnifiedTopology: true })
 
         });
 
+
+        // app.post('/records/b2w', (req, res) => {
+        //     const data = req.body;
+        //     console.log("request body", data);
+
+        //     const r = util.processBle2Wifi(data);
+
+        //     dataHistoriesCol.updateOne(
+        //         {
+        //             ...filterBase,
+        //             ts,
+        //         },
+        //         {
+        //             $setOnInsert: {
+        //                 ...filterBase,
+        //                 ...r,
+        //                 ts
+        //             }
+        //         },
+        //         {
+        //             upsert: true
+        //         }
+        //     )
+        // });
+
     }).catch(err => console.error(err));
 
 app.post('/dump', (req, res) => {
@@ -763,5 +796,80 @@ app.get('/health', (req, res) => {
 })
 
 app.listen(PORT, function () {
-    console.log(`listening on ${PORT}`)
+    console.log(`Rest Server is listening on port: ${PORT}.`)
 })
+
+
+server.listen(TCP_PORT, () => {
+    console.log(`TCP Server is running on port: ${TCP_PORT}.`);
+});
+
+
+/* 
+ *  TCP Server
+*/
+const handleTcpConnection = socket => {
+    const client = socket.remoteAddress + ':' + socket.remotePort;
+    console.log('new client connection from %s', client);
+
+    /* 
+     *  Records BLE to WIFI
+     *  保存历史数据 蓝牙转WIFI
+    */
+    socket.on('data', chunk => {
+        const { n, ts, ti, te, ta, i } = util.processBle2Wifi(chunk.buffer);
+
+        const recordBase = {
+            n,
+            ts
+        }
+
+        mongoClient
+            .then(client => {
+
+                const db = client.db(dbName);
+                const dataHistoriesCol = db.collection(dataHistories);
+                dataHistoriesCol.updateOne(
+                    recordBase,
+                    {
+                        $setOnInsert: {
+                            ...recordBase,
+                            i,
+                            ti,
+                            te,
+                            ta
+                        }
+                    },
+                    {
+                        upsert: true
+                    }
+                )
+                    .then(result => {
+                        socket.write(200);
+                    })
+                    .catch(err => {
+                        console.error(`Failed saving record for client ${client}, data ${chunk}, err ${err}`);
+                        socket.write(500);
+                    })
+
+            })
+            .catch(err => {
+                console.error(`Failed saving record for client ${client}, data ${chunk}, err ${err}`);
+                socket.write(500);
+            })
+    });
+    // socket.on('data', chunk => {
+    //     console.log(chunk);
+    // });  
+
+    socket.on('end', () => {
+        console.log(`Closing connection with ${client}`);
+    });
+
+    socket.on('error', err => {
+        console.error(`Failed saving record for client ${client}, err ${err}`);
+    });
+
+}
+
+server.on('connection', handleTcpConnection);
