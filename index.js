@@ -68,10 +68,16 @@ mongoClient
         app.post('/records', (req, res) => {
             const data = req.body;
             console.log("request body", data);
-            const filterBase = {
-                i: data.i,
-                c: data.c
-            };
+
+            // backward compatible
+            const filterBase = data.n
+                ? {
+                    n: data.n
+                }
+                : {
+                    i: data.i
+                };
+
 
             const updates = [];
             let maxTs = -1;
@@ -821,7 +827,7 @@ const handleTcpConnection = socket => {
 
         const recordBase = {
             n,
-            ts
+            ts: new Date(ts)
         }
 
         mongoClient
