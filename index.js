@@ -815,6 +815,8 @@ server.listen(TCP_PORT, () => {
  *  TCP Server
 */
 const handleTcpConnection = socket => {
+    const success = "2";
+    const failure = "5";
     const client = socket.remoteAddress + ':' + socket.remotePort;
     console.log('new client connection from %s', client);
 
@@ -823,46 +825,53 @@ const handleTcpConnection = socket => {
      *  保存历史数据 蓝牙转WIFI
     */
     socket.on('data', chunk => {
-        const { n, ts, ti, te, ta, i } = util.processBle2Wifi(chunk.buffer);
+        const result = util.processBle2Wifi(chunk.buffer);
 
-        const recordBase = {
-            n,
-            ts: new Date(ts)
+        if (result !== null) {
+            const { n, ts, ti, te, ta, i } = result;
+            const recordBase = {
+                n,
+                ts: new Date(ts)
+            }
+            mongoClient
+                .then(client => {
+
+                    const db = client.db(dbName);
+                    const dataHistoriesCol = db.collection(dataHistories);
+                    dataHistoriesCol.updateOne(
+                        recordBase,
+                        {
+                            $setOnInsert: {
+                                ...recordBase,
+                                i,
+                                ti,
+                                te,
+                                ta
+                            }
+                        },
+                        {
+                            upsert: true
+                        }
+                    )
+                        .then(result => {
+                            socket.write(success);
+                        })
+                        .catch(err => {
+                            console.error(`Failed saving record for client ${client}, data ${chunk}, err ${err}`);
+                            socket.write(failure);
+                        })
+
+                })
+                .catch(err => {
+                    console.error(`Failed saving record for client ${client}, data ${chunk}, err ${err}`);
+                    socket.write(failure);
+                })
+        } else {
+            socket.write(failure);
         }
 
-        mongoClient
-            .then(client => {
 
-                const db = client.db(dbName);
-                const dataHistoriesCol = db.collection(dataHistories);
-                dataHistoriesCol.updateOne(
-                    recordBase,
-                    {
-                        $setOnInsert: {
-                            ...recordBase,
-                            i,
-                            ti,
-                            te,
-                            ta
-                        }
-                    },
-                    {
-                        upsert: true
-                    }
-                )
-                    .then(result => {
-                        socket.write(200);
-                    })
-                    .catch(err => {
-                        console.error(`Failed saving record for client ${client}, data ${chunk}, err ${err}`);
-                        socket.write(500);
-                    })
 
-            })
-            .catch(err => {
-                console.error(`Failed saving record for client ${client}, data ${chunk}, err ${err}`);
-                socket.write(500);
-            })
     });
     // socket.on('data', chunk => {
     //     console.log(chunk);

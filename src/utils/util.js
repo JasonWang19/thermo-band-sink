@@ -74,7 +74,7 @@ const processBle2Wifi = (arraybuffer) => {
             ta,
         }
     }
-
+    return null;
 }
 
 module.exports = {
