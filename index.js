@@ -530,10 +530,10 @@ mongoClient
         app.post('/org', (req, res) => {
             console.log('Request for update org information: ', req.body);
             let data = req.body;
-            const orgId = data.orgid ? data.orgid : getUuid();
+            const orgId = data.orgId ? data.orgId : getUuid();
             data = {
                 ...data,
-                orgid
+                orgId
             };
 
             orgsCol.updateOne(
@@ -608,6 +608,33 @@ mongoClient
             )
 
         });
+
+        /*
+         *  Orgs all of the orgs
+         *  GET
+         *  获取所有的org的列表
+        */
+        app.get('/orgs', (req, res) => {
+            console.log('Request for obtain list of all orgs.');
+
+            orgsCol.find({})
+                .toArray()
+                .then(docs => {
+                    if (docs && docs.length > 0) {
+                        res.json(docs);
+                    } else {
+                        res.status(404).end();
+
+                    }
+                })
+                .catch(err => {
+                    console.error('Query failed when extract org via org name:', orgName);
+                    res.status(500).end();
+                })
+
+        });
+
+
 
         /*
          *  Org structure info
