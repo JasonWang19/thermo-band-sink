@@ -540,12 +540,25 @@ mongoClient
                 ...data,
                 orgId
             };
+            let promise;
+            if (data._id) {
+                const { _id, ...newData } = data;
+                promise = orgsCol.updateOne(
+                    { _id: new ObjectID(_id) },
+                    {
+                        $set: newData
+                    },
+                    { upsert: true }
+                );
+            } else {
+                promise = orgsCol.updateOne(
+                    { orgId },
+                    { $set: data },
+                    { upsert: true }
+                );
+            }
 
-            orgsCol.updateOne(
-                { orgId },
-                { $set: data },
-                { upsert: true }
-            )
+            promise
                 .then(result => {
                     res.json(data);
                 })
