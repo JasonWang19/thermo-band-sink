@@ -37,6 +37,11 @@ const DEFAULT_QUERY_INTERVAL = 2 * 3600 * 1000;
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
 app.use(bodyParser.text())
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, x-token');
+    next();
+});
 
 // utility function
 const isEmptyArray = arr => {
@@ -822,6 +827,17 @@ app.post('/dump', (req, res) => {
     res.send('success');
 })
 
+
+/*
+*   mock user api
+*/
+const { loginHandler, getUserInfoHandler } = require('./src/user');
+app.post('/user/login', (req, res) => {
+    res.json(loginHandler(req));
+})
+app.get('/user/Info', (req, res) => {
+    res.json(getUserInfoHandler(req));
+})
 
 
 app.get('/health', (req, res) => {
