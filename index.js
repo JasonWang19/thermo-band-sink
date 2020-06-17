@@ -437,32 +437,6 @@ mongoClient
             ])
                 .toArray()
         }
-        /*
-         *  Device info
-         *  GET
-         *  获取手环相关信息
-        */
-        app.get('/device/:deviceId', (req, res) => {
-            console.log('Request for device information for device id: ', req.params.deviceId);
-            const deviceId = req.params.deviceId;
-            devicesCol.findOne({
-                deviceId
-            },
-                (err, doc) => {
-                    if (err) {
-                        console.error('Query failed when extract device via device id:', deviceId, err);
-
-                        // TODO set error response
-                        res.status(500).end();
-                    }
-                    if (doc) {
-                        res.json(doc);
-                    } else {
-                        res.status(404).end();
-                    }
-
-                })
-        });
 
         /*
          *  Device info
@@ -472,11 +446,11 @@ mongoClient
         app.post('/device', (req, res) => {
             console.log('Request for update device information: ', req.body);
             const data = req.body;
-            const deviceId = data.deviceId;
+            const deviceName = data.deviceName;
 
             devicesCol.updateOne(
                 {
-                    deviceId
+                    deviceName
                 },
                 {
                     $set: {
@@ -525,6 +499,57 @@ mongoClient
                     })
                 });
 
+        });
+
+        /*
+         *  Device info
+         *  GET
+         *  获取手环相关信息
+        */
+        app.get('/device/:deviceName', (req, res) => {
+            console.log('Request for device information for device name: ', req.params.deviceName);
+            const deviceName = req.params.deviceName;
+            devicesCol.findOne({
+                deviceName
+            },
+                (err, doc) => {
+                    if (err) {
+                        console.error('Query failed when extract device via device name:', deviceName, err);
+
+                        // TODO set error response
+                        res.status(500).end();
+                    }
+                    if (doc) {
+                        res.json(doc);
+                    } else {
+                        res.status(404).end();
+                    }
+
+                })
+        });
+
+        /*
+         *  All Device info
+         *  GET
+         *  获取所有手环相关信息
+        */
+        app.get('/devices', (req, res) => {
+
+            // TODO add query criteria
+
+            console.log('Request for device information for all devices');
+            devicesCol.find({}).toArray()
+                .then(docs => {
+                    if (docs && docs.length > 0) {
+                        res.json(docs);
+                    } else {
+                        res.status(404).end();
+                    }
+                })
+                .catch(err => {
+                    console.error('Query failed when extract device via device name:', deviceName, err);
+                    res.status(500).end();
+                })
         });
 
         /*
@@ -747,7 +772,7 @@ mongoClient
         *  Team info
         *  POST
         *  更新班级相关信息
-       */
+        */
         app.post('/team', (req, res) => {
             console.log('Request for update team information: ', req.body);
             let data = req.body;
