@@ -29,7 +29,7 @@ const orgs = 'orgs';
 const orgStructs = 'org_structs';
 const staffs = 'staffs';
 const teams = 'teams';
-
+const leaves = 'leaves';
 
 // constants
 const DEFAULT_QUERY_INTERVAL = 2 * 3600 * 1000;
@@ -65,6 +65,7 @@ mongoClient
         const staffsCol = db.collection(staffs);
         const teamsCol = db.collection(teams);
         const orgStructsCol = db.collection(orgStructs);
+        const leavesCol = db.collection(leaves);
 
         /* 
          *  Records 
@@ -265,13 +266,14 @@ mongoClient
             const data = req.body;
             console.log("request body", data);
             const staffId = data.staffId;
+            const { _id, ...newData } = data;
             staffsCol.updateOne(
                 {
                     staffId
                 },
                 {
                     $set: {
-                        ...data
+                        ...newData
                     }
                 },
                 {
@@ -439,6 +441,30 @@ mongoClient
         }
 
         /*
+         *  Staffs - list of staff
+         *  GET 
+         *  获取所有员工 staffs by org id
+        */
+        app.get('/staffs/org/:orgId', (req, res) => {
+            const orgId = req.params.orgId;
+
+            console.log('Request for list of staff by org id: ', orgId);
+
+            staffsCol.find({ orgId }).toArray()
+                .then(docs => {
+                    if (isEmptyArray(docs)) {
+                        res.status(404).end();
+                    } else {
+                        res.json(docs);
+                    }
+                })
+                .catch(err => {
+                    console.error('Query failed when extract device via device name:', deviceName, err);
+                    res.status(500).end();
+                })
+        });
+
+        /*
          *  Device info
          *  POST
          *  更新手环相关信息
@@ -540,10 +566,10 @@ mongoClient
             console.log('Request for device information for all devices');
             devicesCol.find({}).toArray()
                 .then(docs => {
-                    if (docs && docs.length > 0) {
-                        res.json(docs);
-                    } else {
+                    if (isEmptyArray(docs)) {
                         res.status(404).end();
+                    } else {
+                        res.json(docs);
                     }
                 })
                 .catch(err => {
@@ -660,14 +686,13 @@ mongoClient
         app.get('/orgs', (req, res) => {
             console.log('Request for obtain list of all orgs.');
 
-            orgsCol.find({})
+            orgsCol.find({}, { leaves: 0, teams: 0 })
                 .toArray()
                 .then(docs => {
-                    if (docs && docs.length > 0) {
-                        res.json(docs);
-                    } else {
+                    if (isEmptyArray(docs)) {
                         res.status(404).end();
-
+                    } else {
+                        res.json(docs);
                     }
                 })
                 .catch(err => {
@@ -680,11 +705,11 @@ mongoClient
 
 
         /*
-         *  Org structure info
+         *  Bulk Org structure info
          *  POST
-         *  更新机构人员架构相关信息
+         *  批量更新机构人员架构相关信息
         */
-        app.post('/orgstruct', (req, res) => {
+        app.post('/orgstruct/org', (req, res) => {
             console.log('Request for update org structure information: ', req.body);
             let data = req.body;
             const orgId = data.orgId;
@@ -712,6 +737,68 @@ mongoClient
         });
 
         /*
+         *  Bulk Org structure info
+         *  POST
+         *  批量更新机构人员架构相关信息
+        */
+        app.post('/orgstruct/org', (req, res) => {
+            console.log('Request for update org structure information: ', req.body);
+            let data = req.body;
+            const orgId = data.orgId;
+
+            const promises = Object.entries(data.structs).map(e => {
+                const staffId = e[0];
+                return orgStructsCol.updateOne(
+                    { orgId, staffId },
+                    { $set: e[1] },
+                    { upsert: true }
+                );
+            })
+
+            Promise.all(promises)
+                .then(results => {
+                    res.json(data);
+                })
+                .catch(err => {
+                    console.error('err', err);
+                    res.status(400).json({
+                        errmsg: `cannot setup org info for org id: ${orgId}`
+                    })
+                });
+
+        });
+
+        /*
+         *  Bulk Org structure info
+         *  POST
+         *  批量更新机构人员架构相关信息
+        */
+        app.post('/orgstruct', (req, res) => {
+            console.log('Request for update org structure information: ', req.body);
+            let data = req.body;
+
+            const bulk = orgStructsCol.initializeUnorderedBulkOp();
+
+            for (let d of data) {
+                const { _id, ...upd } = d
+                bulk.find({ orgId: d.orgId, staffId: d.staffId }).upsert().updateOne({ $set: upd });
+            }
+
+            bulk.execute()
+            .then(results => {
+                console.log(JSON.stringify(results));
+                res.json(null);
+            })
+            .catch(err => {
+                console.error('err', err);
+                res.status(400).json({
+                    errmsg: `cannot bulk update org struct`
+                })
+            });
+
+        });
+
+        /*
          *  Org structure by id
          *  GET
          *  通过Org ID获取机构人员架构信息
@@ -725,11 +812,12 @@ mongoClient
                 .then(
                     docs => {
 
-                        if (!isEmptyArray(docs)) {
-                            res.json(docs);
-                        } else {
-                            res.status(404).end();
-                        }
+                        res.json(docs);
+                        // if (!isEmptyArray(docs)) {
+                        //     res.json(docs);
+                        // } else {
+                        //     res.status(404).end();
+                        // }
 
                     })
                 .catch(err => {
@@ -768,6 +856,7 @@ mongoClient
 
         });
 
+        // TODO deprecate team apis, move team into org
         /*
         *  Team info
         *  POST
@@ -834,29 +923,110 @@ mongoClient
         });
 
 
-        // app.post('/records/b2w', (req, res) => {
-        //     const data = req.body;
-        //     console.log("request body", data);
+        /*
+         *  Teams by org id
+         *  GET
+         *  获取机构所有班级
+        */
+        app.get('/teams/org/:orgId', (req, res) => {
+            const orgId = req.params.orgId;
+            console.log('Request for obtain teams of org: ', orgId);
 
-        //     const r = util.processBle2Wifi(data);
+            teamsCol.find({ orgId })
+                .toArray()
+                .then(docs => {
+                    res.json(docs)
+                })
+                .catch(err => {
+                    if (err) {
+                        console.error('Query failed when extract team via team id:', teamId);
+                        res.status(500).end();
+                    }
+                })
+        });
 
-        //     dataHistoriesCol.updateOne(
-        //         {
-        //             ...filterBase,
-        //             ts,
-        //         },
-        //         {
-        //             $setOnInsert: {
-        //                 ...filterBase,
-        //                 ...r,
-        //                 ts
-        //             }
-        //         },
-        //         {
-        //             upsert: true
-        //         }
-        //     )
-        // });
+        /*
+        *  Leaf info
+        *  POST
+        *  更新用户信息
+        */
+        app.post('/leaf', (req, res) => {
+            console.log('Request for update leaf information: ', req.body);
+            const { _id, data } = req.body
+
+
+            leavesCol.updateOne(
+                {
+                    c: data.c
+                },
+                {
+                    $set: data
+                },
+                {
+                    upsert: true
+                }
+            )
+                .then(result => {
+                    res.json(data);
+                })
+                .catch(err => {
+                    console.error('err', err);
+                    res.status(400).json({
+                        errmsg: `cannot setup leaf info for id: ${data.c}`
+                    })
+                });
+
+        });
+
+        /*
+         *  Team info by id
+         *  GET
+         *  通过Team id获取班级相关信息
+        */
+        app.get('/leaf/c/:c', (req, res) => {
+            const c = req.params.c;
+
+            console.log('Request for obtain leaf information: ', c);
+
+            leavesCol.findOne(
+                { c },
+                (err, doc) => {
+                    if (err) {
+                        console.error('Query failed when extract team via c:', c);
+                        res.status(500).end();
+                    }
+                    if (doc) {
+                        res.json(doc);
+                    } else {
+                        res.status(404).end();
+                    }
+
+                }
+            )
+        });
+
+
+        /*
+         *  Teams by org id
+         *  GET
+         *  获取机构所有班级
+        */
+        app.get('/leaves/org/:orgId', (req, res) => {
+            const orgId = req.params.orgId;
+            console.log('Request for obtain teams of org: ', orgId);
+
+            leavesCol.find({ orgId })
+                .toArray()
+                .then(docs => {
+                    res.json(docs)
+                })
+                .catch(err => {
+                    if (err) {
+                        console.error('Query failed when extract leaf via org id:', orgId);
+                        res.status(500).end();
+                    }
+                })
+        });
 
     }).catch(err => console.error(err));
 
