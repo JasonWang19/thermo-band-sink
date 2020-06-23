@@ -61,6 +61,12 @@ module.exports = {
             data: info
         }
 
+    },
+    logOutHandler() {
+        return {
+            code: 20000,
+            data: 'success'
+        }
     }
 
 };

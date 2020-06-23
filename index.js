@@ -785,16 +785,16 @@ mongoClient
             }
 
             bulk.execute()
-            .then(results => {
-                console.log(JSON.stringify(results));
-                res.json(null);
-            })
-            .catch(err => {
-                console.error('err', err);
-                res.status(400).json({
-                    errmsg: `cannot bulk update org struct`
+                .then(results => {
+                    console.log(JSON.stringify(results));
+                    res.json(null);
                 })
-            });
+                .catch(err => {
+                    console.error('err', err);
+                    res.status(400).json({
+                        errmsg: `cannot bulk update org struct`
+                    })
+                });
 
         });
 
@@ -1039,12 +1039,15 @@ app.post('/dump', (req, res) => {
 /*
 *   mock user api
 */
-const { loginHandler, getUserInfoHandler } = require('./src/user');
+const { loginHandler, getUserInfoHandler, logOutHandler } = require('./src/user');
 app.post('/user/login', (req, res) => {
     res.json(loginHandler(req));
 })
 app.get('/user/Info', (req, res) => {
     res.json(getUserInfoHandler(req));
+})
+app.post('/user/logout', (req, res) => {
+    res.json(loginHandler(req));
 })
 
 
