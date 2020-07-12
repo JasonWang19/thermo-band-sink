@@ -53,19 +53,39 @@ router.post('/login', auth.optional, (req, res, next) => {
 
     return passport.authenticate('local', { session: false }, (err, passportUser, info) => {
         if (err) {
-            return next(err);
+            return res.status(err.status).json(err.msg);
         }
 
         if (passportUser) {
             const user = passportUser;
-            user.token = passportUser.generateJWT();
+            user.token = passportUser.generatedJwt;
 
             return res.json({ user: user.authJson });
         }
 
-        return status(400).info;
+        return res.status(400).info;
     })(req, res, next);
 });
 
+//GET current route (required, only authenticated users have access)
+router.get('/current', auth.required, (req, res, next) => {
+    const { payload: { id } } = req;
+
+    return Users.findById(id)
+        .then((user) => {
+            if (!user) {
+                return res.sendStatus(400);
+            }
+
+            return res.json({ user });
+        });
+});
+
+//GET current route (required, only authenticated users have access)
+router.post('/logout', auth.required, (req, res, next) => {
+    const { payload: { id } } = req;
+
+    return res.status(200).send();
+});
 
 module.exports = router;

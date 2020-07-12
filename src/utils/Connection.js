@@ -17,7 +17,7 @@ const leaves = 'leaves';
 const users = 'users';
 
 class Connection {
-    static connectToMongo() {
+    static connectToDb() {
         if (this.db) return Promise.resolve(this.db)
         return MongoClient.connect(this.url, this.options)
             .then(client => {
@@ -31,18 +31,18 @@ class Connection {
     static get userInfosCol() {
         return this.db.collection(userInfos);
     }
+    static get devicesCol() {
+        return this.db.collection(devices);
+    }
+    static get staffsCol() { return this.db.collection(staffs); }
+    static get orgsCol() { return this.db.collection(orgs); }
+    static get teamsCol() { return this.db.collection(teams); }
+    static get orgStructsCol() { return this.db.collection(orgStructs); }
+    static get leavesCol() { return this.db.collection(leaves); }
+
     static get usersCol() {
         return this.db.collection(users);
     }
-    // Connection.devicesCol = db.collection(devices);
-    // Connection.orgsCol = db.collection(orgs);
-    // Connection.staffsCol = db.collection(staffs);
-    // Connection.teamsCol = db.collection(teams);
-    // Connection.orgStructsCol = db.collection(orgStructs);
-    // Connection.leavesCol = db.collection(leaves);
-    // Connection.
-
-
 }
 
 Connection.db = null

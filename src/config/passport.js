@@ -1,18 +1,20 @@
 const passport = require('passport');
 const LocalStrategy = require('passport-local');
 
+const { Users } = require('../models/Users');
+
 passport.use(new LocalStrategy({
     usernameField: 'user[username]',
     passwordField: 'user[password]',
 }, (username, password, done) => {
-    //   Users.findOne({ username })
-    //     .then((user) => {
-    //       if(!user || !user.validatePassword(password)) {
-    //         return done(null, false, { errors: { 'username or password': 'is invalid' } });
-    //       }
+    console.debug('Verifying user by local strategy: ', username);
 
-    //       return done(null, user);
-    //     }).catch(done);
-    console.log('test local strategy');
-    return done();
+    Users.findUser({ username })
+        .then((user) => {
+            if (!user || !user.validatePassword(password)) {
+                return done({ status: 401, msg: { 'username or password': 'is invalid or unavailable' } });
+            }
+
+            return done(null, user);
+        }).catch(done);
 }));

@@ -26,18 +26,48 @@ const TCP_PORT = process.env.TCP_PORT;
 // constants
 const DEFAULT_QUERY_INTERVAL = 2 * 3600 * 1000;
 
+// DB initialization
+const { Connection: conn } = require('./src/utils/Connection')
+conn.connectToDb()
+
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
 app.use(bodyParser.text())
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, x-token');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, x-token, Authorization');
     next();
 });
 
 app.use(passport.initialize());
 require('./src/config/passport');
 app.use(require('./src/routes'));
+
+
+// //Error handlers & middlewares
+// if (!isProduction) {
+//     app.use((err, req, res) => {
+//         res.status(err.status || 500);
+
+//         res.json({
+//             errors: {
+//                 message: err.message,
+//                 error: err,
+//             },
+//         });
+//     });
+// }
+
+// app.use((err, req, res) => {
+//     res.status(err.status || 500);
+
+//     res.json({
+//         errors: {
+//             message: err.message,
+//             error: {},
+//         },
+//     });
+// });
 
 // utility function
 const isEmptyArray = arr => {
@@ -47,9 +77,6 @@ const isEmptyArray = arr => {
 const getUuid = () => {
     return uuid4();
 }
-
-const { Connection:conn } = require('./src/utils/Connection')
-conn.connectToMongo()
 
 /* 
  *  Records 
@@ -1029,7 +1056,7 @@ app.get('/user/Info', (req, res) => {
     res.json(getUserInfoHandler(req));
 })
 app.post('/user/logout', (req, res) => {
-    res.json(loginHandler(req));
+    res.json(logOutHandler(req));
 })
 
 
@@ -1094,31 +1121,31 @@ const handleTcpConnection = socket => {
                 n,
                 ts: new Date(ts)
             }
-           
-                    conn.dataHistoriesCol.updateOne(
-                        recordBase,
-                        {
-                            $setOnInsert: {
-                                ...recordBase,
-                                i,
-                                ti,
-                                te,
-                                ta
-                            }
-                        },
-                        {
-                            upsert: true
-                        }
-                    )
-                        .then(result => {
-                            socket.write(success);
-                        })
-                        .catch(err => {
-                            console.error(`Failed saving record for client ${client}, data ${chunk}, err ${err}`);
-                            socket.write(failure);
-                        })
 
-                
+            conn.dataHistoriesCol.updateOne(
+                recordBase,
+                {
+                    $setOnInsert: {
+                        ...recordBase,
+                        i,
+                        ti,
+                        te,
+                        ta
+                    }
+                },
+                {
+                    upsert: true
+                }
+            )
+                .then(result => {
+                    socket.write(success);
+                })
+                .catch(err => {
+                    console.error(`Failed saving record for client ${client}, data ${chunk}, err ${err}`);
+                    socket.write(failure);
+                })
+
+
         } else {
             socket.write(failure);
         }

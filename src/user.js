@@ -40,7 +40,7 @@ module.exports = {
 
         return {
             code: 20000,
-            data: token
+            user: token
 
         }
     },
@@ -58,14 +58,14 @@ module.exports = {
 
         return {
             code: 20000,
-            data: info
+            user: info
         }
 
     },
     logOutHandler() {
         return {
             code: 20000,
-            data: 'success'
+            user: 'success'
         }
     }
 

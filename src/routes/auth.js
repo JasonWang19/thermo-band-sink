@@ -4,7 +4,7 @@ const SECRET = process.env.SECRET || 'secret';
 const getToken = (req) => {
   const { headers: { authorization } } = req;
 
-  if(authorization && authorization.split(' ')[0] === 'Token') {
+  if(authorization && authorization.split(' ')[0] === 'Bearer') {
     return authorization.split(' ')[1];
   }
   return null;
@@ -15,14 +15,14 @@ const auth = {
     secret: SECRET,
     userProperty: 'payload',
     getToken,
-    algorithms: ['RS256']
+    algorithms: ['HS256']
   }),
   optional: jwt({
     secret: SECRET,
     userProperty: 'payload',
     getToken,
     credentialsRequired: false,
-    algorithms: ['RS256']
+    algorithms: ['HS256']
   }),
 };
 
