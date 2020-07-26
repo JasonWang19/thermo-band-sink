@@ -2,19 +2,25 @@
 
 const router = require('express').Router();
 const { Connection: conn } = require('../utils/Connection');
+const lodash = require('lodash');
+
+// constants
+const DEFAULT_QUERY_INTERVAL = 2 * 3600 * 1000;
+
 
 /* 
  *  Records 
  *  保存历史数据
 */
-router.post('/', (req, res) => {
+router.post('', (req, res) => {
     const data = req.body;
     console.log("request body", data);
 
     // backward compatible
     const filterBase = data.n
         ? {
-            n: data.n
+            n: data.n,
+            c: data.c
         }
         : {
             i: data.i
@@ -59,53 +65,85 @@ router.post('/', (req, res) => {
 });
 
 /*
-*  Records
+*  Records by user id
 *  GET 
 *  获取历史数据
 */
-router.get('/c/:c', (req, res) => {
-    getHistoryRecords('c', req, res);
+router.get('', (req, res) => {
+    const param = {}
+    if (req.query.c) {
+        param['c'] = req.query.c;
+    }
+    if (req.query.n) {
+        param['n'] = req.query.n;
+    }
+    getHistoryRecords(param, req, res);
 });
 
 /*
-*  Records
+*  deprecated due to device id is different between ios and android
+*  Records by device id 
 *  GET 
 *  获取历史数据
 */
 router.get('/i/:i', (req, res) => {
-    getHistoryRecords('i', req, res);
+    getHistoryRecords({
+        i: req.params.i
+    }, req, res);
 
 });
 
 const getHistoryRecords = (param, req, res) => {
-    const id = req.params[param];
+
     const current = new Date();
     const startTs = req.query.from ? new Date(parseInt(req.query.from)) : new Date(current - DEFAULT_QUERY_INTERVAL);
     const endTs = req.query.to ? new Date(parseInt(req.query.to)) : current;
-    console.log(`Request records for ${param} id: `, id, startTs, endTs);
+    const limit = req.query.limit ? req.query.limit : 100;
+    const skip = req.query.skip ? req.query.skip : 0;
+    console.log(`Request records for: ${JSON.stringify(param)}, start: ${startTs}, end: ${endTs}`);
 
-    conn.dataHistoriesCol.find({
-        [param]: id,
-        ts: { $gte: startTs, $lt: endTs }
-    }).toArray((err, docs) => {
-        if (err) {
-            res.status(500).end();
-            return;
+    let query = {};
+    if (!lodash.isEmpty(param)) {
+        query = {
+            ...param,
+            ts: { $gte: startTs, $lt: endTs }
         }
-        if (isEmptyArray(docs)) {
+    }
+
+    let find = conn.dataHistoriesCol.find(query);
+
+    if (lodash.isEmpty(param)) {
+        find = find.sort({ ts: -1 })
+    }
+    if (skip > 0) {
+        find = find.skip(skip);
+    }
+    find = find.limit(limit);
+
+    find.toArray((err, docs) => {
+        if (err) {
+            throw err;
+        }
+        if (lodash.isEmpty(docs)) {
             res.status(404).end();
             return;
         }
-        res.json({
-            c: docs[0].c,
-            i: docs[0].i,
-            r: docs.map(doc => {
+
+        const r =
+            docs.map(doc => {
                 return {
+                    c: doc.c,
                     ts: new Date(doc.ts).getTime(),
                     ti: doc.ti,
                     ta: doc.ta
                 }
-            })
+            });
+
+        res.json({
+            ...param,
+            limit,
+            skip,
+            r
         });
     });
 }

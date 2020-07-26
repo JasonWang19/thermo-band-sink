@@ -1,5 +1,6 @@
 'use strict';
 
+
 const valueFromView = (view, num, pos) => {
     switch (num) {
         case 8:
@@ -77,6 +78,11 @@ const processBle2Wifi = (arraybuffer) => {
     return null;
 }
 
+const getUuid = () => {
+    return uuid4();
+}
+
 module.exports = {
     processBle2Wifi,
+    getUuid,
 }
