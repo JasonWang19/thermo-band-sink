@@ -5,7 +5,7 @@ const { Connection: conn } = require('../utils/Connection');
 const lodash = require('lodash');
 
 // constants
-const DEFAULT_QUERY_INTERVAL = 2 * 3600 * 1000;
+const DEFAULT_QUERY_INTERVAL = 7 * 24 * 3600 * 1000;
 
 
 /* 
@@ -96,10 +96,10 @@ router.get('/i/:i', (req, res) => {
 const getHistoryRecords = (param, req, res) => {
 
     const current = new Date();
-    const startTs = req.query.from ? new Date(parseInt(req.query.from)) : new Date(current - DEFAULT_QUERY_INTERVAL);
+    const startTs = req.query.from ? new Date(parseInt(req.query.from)) : new Date(current.getTime() - DEFAULT_QUERY_INTERVAL);
     const endTs = req.query.to ? new Date(parseInt(req.query.to)) : current;
-    const limit = req.query.limit ? req.query.limit : 100;
-    const skip = req.query.skip ? req.query.skip : 0;
+    const limit = req.query.limit ? parseInt(req.query.limit) : 100;
+    const skip = req.query.skip ? parseInt(req.query.skip) : 0;
     console.log(`Request records for: ${JSON.stringify(param)}, start: ${startTs}, end: ${endTs}`);
 
     let query = {};
