@@ -70,6 +70,21 @@ app.get('/test', (req, res)=>{
 //     });
 // });
 
+/*
+ *  remote logging
+ *  远程日志
+*/
+app.post('/logs', (req, res) => {
+    const data = req.body;
+    console.log("request body", data);
+    conn.logsCol.insertOne( data )
+    .then(()=>res.end())
+    .catch((err)=>{
+        console.warn('post log failure', err);
+        res.end();
+    })
+
+});
 
 /* 
  *  User login

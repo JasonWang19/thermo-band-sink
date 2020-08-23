@@ -43,6 +43,8 @@ class Connection {
     static get usersCol() {
         return this.db.collection(users);
     }
+
+    static get logsCol() { return this.db.collection('logs'); }
 }
 
 Connection.db = null
