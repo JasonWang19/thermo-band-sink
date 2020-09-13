@@ -3,14 +3,14 @@
 const router = require('express').Router();
 const { Connection: conn } = require('../utils/Connection');
 const lodash = require('lodash');
-
+const { logger } = require('../utils/logger');
 /*
 *  Staff user detail info
 *  员工用户(教职员工)信息的更新
 */
 router.post('', (req, res) => {
     const data = req.body;
-    console.log("request body", data);
+    logger.info("Upsert staff", data);
     const staffId = data.staffId;
     const { _id, ...newData } = data;
     conn.staffsCol.updateOne(
@@ -30,7 +30,7 @@ router.post('', (req, res) => {
             res.json(data);
         })
         .catch(err => {
-            console.error('err', err);
+            logger.error('Upsert staff', err);
             res.status(400).json({
                 errmsg: 'cannot persist staff info'
             })
@@ -44,14 +44,14 @@ router.post('', (req, res) => {
 */
 router.get('/:staffId', (req, res) => {
     const staffId = req.params.staffId;
-    console.log('Request for device information for staff id: ', staffId);
+    logger.info(`Req staff info, staff id: ${staffId}`);
 
     conn.staffsCol.findOne({
         staffId
     },
         (err, doc) => {
             if (err) {
-                console.error('Query failed when extract staff info via staff id:', staffId, err);
+                logger.error(`eq staff info, staff id: ${staffId}`, err);
 
                 // TODO set error response
                 res.status(500).end();
@@ -72,7 +72,7 @@ router.get('/:staffId', (req, res) => {
 */
 router.get('/:staffId/userlist', (req, res) => {
     const staffId = req.params.staffId;
-    console.log('Request for user listfor staff id: ', staffId);
+    logger.info(`Req staff user list, staff id: ${staffId}`);
 
     let orgId;
     const promise = conn.staffsCol.findOne({
@@ -187,6 +187,8 @@ const getMemberPromise = (teamId) => {
 }
 
 /*
+ *  deprecated move to orgstruct
+ *
  *  Staffs - list of staff
  *  GET 
  *  获取所有员工 staffs by org id
@@ -194,7 +196,7 @@ const getMemberPromise = (teamId) => {
 router.get('/org/:orgId', (req, res) => {
     const orgId = req.params.orgId;
 
-    console.log('Request for list of staff by org id: ', orgId);
+    console.log(`deprecated, Req all staff, org id: ${orgId}`);
 
     conn.staffsCol.find({ orgId }).toArray()
         .then(docs => {

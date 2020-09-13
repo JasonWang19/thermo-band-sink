@@ -3,6 +3,7 @@
 const router = require('express').Router();
 const { Connection: conn } = require('../utils/Connection');
 const lodash = require('lodash');
+const { logger } = require('../utils/logger');
 
 /*
  *  Bulk Org structure info
@@ -10,7 +11,7 @@ const lodash = require('lodash');
  *  批量更新机构人员架构相关信息
 */
 router.post('/org', (req, res) => {
-    console.log('Request for update org structure information: ', req.body);
+    logger.info('Upsert org structure info', req.body);
     let data = req.body;
     const orgId = data.orgId;
 
@@ -71,22 +72,20 @@ router.post('/', (req, res) => {
  *  GET
  *  通过Org ID获取机构人员架构信息
 */
-router.get('/id/:orgId', (req, res) => {
-    console.log('Request for obtain org information: ', req.params.orgId);
+router.get('/org/:orgId', (req, res) => {
+    logger.info(`Req org structure, org id: ${req.params.orgId}`);
 
     const orgId = req.params.orgId;
 
     conn.orgStructsCol.find({ orgId }).toArray()
         .then(
             docs => {
-
                 res.json(docs);
                 // if (!isEmptyArray(docs)) {
                 //     res.json(docs);
                 // } else {
                 //     res.status(404).end();
                 // }
-
             })
         .catch(err => {
             console.error('Query failed when extract org via org id:', orgId);
@@ -100,8 +99,8 @@ router.get('/id/:orgId', (req, res) => {
  *  GET
  *  通过Org ID获取机构人员架构信息
 */
-router.get('/id/:orgId/staff/:staffId', (req, res) => {
-    console.log('Request for obtain org information: ', req.params.orgId);
+router.get('/org/:orgId/staff/:staffId', (req, res) => {
+    console.log('Req for obtain org information: ', req.params.orgId);
 
     const orgId = req.params.orgId;
 
@@ -123,4 +122,5 @@ router.get('/id/:orgId/staff/:staffId', (req, res) => {
     )
 
 });
+
 module.exports = router;
