@@ -118,8 +118,8 @@ The organization structure is based on the following tables/collections
 }
 ```
 
-## device_leaf
-`device_leaf` table/collection has history of relationship between devices and leaf.
+## device_leaf_pairings
+`device_leaf_pairings` table/collection has history of relationship between devices and leaf.
 
 ```json
 {
@@ -127,6 +127,7 @@ The organization structure is based on the following tables/collections
     "c": "student-00011",
     "connTs": "2020-01-01T10:00:00Z",
     "disConnTs": "2020-01-05T10:00:00Z",
-    "updateTs": "2020-01-05T10:00:00Z"
+    "updateTs": "2020-01-05T10:00:00Z",
+    "status": "DISCONNECT"
 }
 ```
