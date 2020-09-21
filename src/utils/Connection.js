@@ -45,6 +45,8 @@ class Connection {
     }
 
     static get logsCol() { return this.db.collection('logs'); }
+
+    static get deviceLeafPairingsCol() { return this.db.collection('device_leaf_pairings')}
 }
 
 Connection.db = null
