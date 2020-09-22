@@ -83,7 +83,11 @@ async function pairing(req, res) {
     // 2. need to check device
     //   a. whether device exist. HACK: if doesn't exist, a new device will be generated
     //   b. whether org match, fail if org doesn't match
-    const { c, name, deviceName, enforce } = req.body;
+    const { c, name, deviceName } = req.body;
+
+    // TODO: HACKED Default enforced to true
+    const enforce = true;
+
 
     if (!c || !name || !deviceName) {
         res.status(400).json({
