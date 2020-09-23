@@ -96,19 +96,27 @@ router.get('/i/:i', (req, res) => {
 const getHistoryRecords = (param, req, res) => {
 
     const current = new Date();
-    const startTs = req.query.from ? new Date(parseInt(req.query.from)) : new Date(current.getTime() - DEFAULT_QUERY_INTERVAL);
+    // TODO determine if limit on time range needed?
+    // const startTs = req.query.from ? new Date(parseInt(req.query.from)) : new Date(current.getTime() - DEFAULT_QUERY_INTERVAL);
+    // const endTs = req.query.to ? new Date(parseInt(req.query.to)) : current;
+    const startTs = req.query.from ? new Date(parseInt(req.query.from)) : null;
     const endTs = req.query.to ? new Date(parseInt(req.query.to)) : current;
     const limit = req.query.limit ? parseInt(req.query.limit) : 100;
     const skip = req.query.skip ? parseInt(req.query.skip) : 0;
     console.log(`Request records for: ${JSON.stringify(param)}, start: ${startTs}, end: ${endTs}`);
 
-    let query = {};
-    if (!lodash.isEmpty(param)) {
-        query = {
-            ...param,
-            ts: { $gte: startTs, $lt: endTs }
+    let ts = { $lt: endTs };
+    if (startTs) {
+        ts = {
+            ...ts,
+            $gt: startTs,
         }
     }
+    const query = {
+        ...param,
+        ts
+    };
+
 
     let find = conn.dataHistoriesCol.find(query);
 
@@ -124,15 +132,16 @@ const getHistoryRecords = (param, req, res) => {
         if (err) {
             throw err;
         }
-        if (lodash.isEmpty(docs)) {
-            res.status(404).end();
-            return;
-        }
+        // if (lodash.isEmpty(docs)) {
+        //     res.status(404).end();
+        //     return;
+        // }
 
         const r =
             docs.map(doc => {
                 return {
                     c: doc.c,
+                    n: doc.n,
                     ts: new Date(doc.ts).getTime(),
                     ti: doc.ti,
                     ta: doc.ta
